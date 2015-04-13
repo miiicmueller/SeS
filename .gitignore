@@ -30,3 +30,9 @@
 
 # Debug files
 *.dSYM/
+
+*.log
+*.aux
+*.gz
+*.toc
+*.pdf

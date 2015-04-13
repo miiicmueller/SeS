@@ -13,9 +13,161 @@
 
 \subsection{Automated MMC partitionning}
 
+Le tout premier laboratoire était destiné à créer un petit script qui doit permettre d'automatiser la procédure d'installation de la MMC. Voilà directement notre proposition de script :
+
+\begin{lstlisting}[frame=single,style=Console]  % Start your code-block
+
+#!/bin/bash
+
+diskId=$1
+specCmd=$2
+
+echo  "--------------- ODROID XU-3 MMC partition utility --------------"
+echo  "| 	Written by : Michael Mueller                           |"
+echo  "| 	Modified by : Cyrille Savy                             |"
+echo  "----------------------------------------------------------------"
+
+
+# Verification que l'utilisateur est bien root
+
+uid=$(whoami)
+
+if [ "$diskId" == "" ]
+then
+	echo "./flash_disk.sh <dev_name> [erase] !"
+	exit -1
+else 	echo  "Writing on device : $diskId" 
+fi
+
+
+if [ "$uid" == "root" ]
+then
+	if [ "$specCmd" == "erase_all" ]
+	then
+		echo "Erasing all..."
+		dd if=/dev/zero of=$diskId bs=512 seek=1 count=2097152
+		sync
+	else echo "Writing partition only..."
+	fi
+
+	echo "Creating msdos MBR..."
+	# First sector: msdos
+	parted $diskId mklabel msdos
+
+	echo "Creating bootfs..."
+	# create bootfs 64MB
+	parted $diskId mkpart primary ext4 131072s 262143s
+
+	echo "Creating rootfs..."
+	# create rootfs 256MB
+	parted $diskId mkpart primary ext4 262144s 786431s
+
+	echo "Creating usrfs..."
+	# create usrfs  256MB
+	parted $diskId mkpart primary ext4 786432s 1310719s  
+	
+	echo "Formatting bootfs..."
+	# format with label
+ 	mkfs.ext4 $diskId"1" -L bootfs
+
+	echo "Formatting rootfs..."
+	# format with label
+ 	mkfs.ext4 $diskId"2" -L rootfs
+
+	echo "Formatting usrfs..."
+	# format with label
+ 	mkfs.ext4 $diskId"3" -L usrfs
+	sync
+
+	echo "Copying third-party firmware..."
+	#copy firmware & bl1.bin, bl2.bin,tzsw.bin
+	dd if=~/workspace/xu3/buildroot/output/images/xu3-bl1.bin of=$diskId bs=512 seek=1  
+	dd if=~/workspace/xu3/buildroot/output/images/xu3-bl2.bin of=$diskId bs=512 seek=31 
+	dd if=~/workspace/xu3/buildroot/output/images/xu3-tzsw.bin of=$diskId bs=512 seek=719 
+	sync
+
+	echo "Copy U-BOOT..."
+	#copy u-boot
+	dd if=~/workspace/xu3/buildroot/output/images/u-boot.bin of=$diskId bs=512 seek=63 
+	sync
+
+	echo "Copy kernel and dtb..."
+	mkdir /mnt/bootfs
+	mount -t ext4 $diskId"1" /mnt/bootfs
+	#copy kernel & flattened device tree
+	cp ~/workspace/xu3/buildroot/output/images/uImage /mnt/bootfs/
+	cp ~/workspace/xu3/buildroot/output/images/exynos5422-odroidxu3.dtb /mnt/bootfs/ 
+	sync
+	#unmount filesystem
+	umount /mnt/bootfs
+
+	echo "Copy rootfs..."
+ 	#copy rootfs
+	dd if=~/workspace/xu3/buildroot/output/images/rootfs.ext4 of=$diskId"2" bs=512 
+	#dd if=~/workspace/xu3/buildroot/output/images/rootfs.ext4 of=$diskId bs=512 seek=262144 
+	sync
+
+	echo ""
+	echo "DONE WITH SUCCESS! "
+	echo ""
+	exit 0
+
+else echo "root permission required !";exit -1
+fi
+
+\end{lstlisting}
+
+Voici quelques explication pour les grandes lignes de ce scripts : dans premier temps on vérifie que l'on a passé un "device" en paramètre (par exemple "/dev/sdb"). Ensuite vérifie que l'utilisateur possède les droits suffisant ("root"). 
+%TODO : Ajouter la suite des explications
+
+\pagebreak
+\subsection{MMC File positionning}
+
+Dans cette partie du laboratoire nous avons du essayer de déplacer les divers fichiers sur la carte SD. Nous avons commencé par déplacer "bl1.bin" qui est un premier bootloader. Voilà les commandes utilisées (effacement de la mémoire et réécriture dans une autre zone) :
+\begin{lstlisting}[frame=single,style=Console]  % Start your code-block
+
+# BL1
+dd if=/dev/zero of=$diskId bs=512 seek=1 count=31
+dd if=~/workspace/xu3/buildroot/output/images/xu3-bl1.bin of=$diskId bs=512 seek=17849  # déplacé
+\end{lstlisting}
+
+La carte ne fait rien! Évidemment, si le processeur ne trouve pas le "bootloader", il ne peut charger aucun logiciel. 
+Nous avons ensuite essayer de déplacer "bl2.bin". Voilà les commandes utilisées (effacement de la mémoire et réécriture dans une autre zone) : 
+\begin{lstlisting}[frame=single,style=Console]  % Start your code-block
+
+# BL2
+dd if=/dev/zero of=$diskId bs=512 seek=31 count=29
+dd if=~/workspace/xu3/buildroot/output/images/xu3-bl2.bin of=$diskId bs=512 seek=17849 # déplacé
+\end{lstlisting}
+
+La carte ne fait rien non plus... On peut partir du principe que le premier bootloader à été chargé en mémoire et exécuté et que le deuxième n'étant pas présent n'as pas démarré. Donc le système ne fonctionne pas. 
+Nous avons essayé de déplacer la "trustzone". Voilà les commandes utilisées (effacement de la mémoire et réécriture dans une autre zone) : 
+\begin{lstlisting}[frame=single,style=Console]  % Start your code-block
+
+#TZ
+dd if=/dev/zero of=$diskId bs=512 seek=719 count=512
+dd if=~/workspace/xu3/buildroot/output/images/xu3-tzsw.bin of=$diskId bs=512 seek=17849 # déplacé
+\end{lstlisting}
+
+Cette fois u-boot démarre. Est-ce normal ou est-ce que la "trust-zone" n'est pas utilisée, nous ne savons pas... Peut-être que nous avons fait des erreurs de manipulations. Essayons encore de déplacer u-boot. 
+Voilà les commandes utilisées (effacement de la mémoire et réécriture dans une autre zone) : 
+
+\begin{lstlisting}[frame=single,style=Console]  % Start your code-block
+
+#Uboot
+dd if=/dev/zero of=$diskId bs=512 seek=63 count=552
+dd if=~/workspace/xu3/buildroot/output/images/u-boot.bin of=$diskId bs=512 seek=17849 # déplacé
+\end{lstlisting}
+
+U-boot ne démmare pas (on peut en déduire que c'est logique...)! Par contre le ventilateur c'est mis à tourner, ce qui porte à penser que "bl2.bin" à bien démarré, mais n'as pas trouvé "u-boot".
+
+%TODO Cyrille : à ajouter tes parties
+
 
 \section{U-Boot hardening}
 
 \subsection{GCC compilation command line}
+
 \subsubsection{Debug symbol stripping}
+
 \subsubsection{Using canaries}
