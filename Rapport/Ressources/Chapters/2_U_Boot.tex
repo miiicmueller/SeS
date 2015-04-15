@@ -159,9 +159,39 @@ dd if=/dev/zero of=$diskId bs=512 seek=63 count=552
 dd if=~/workspace/xu3/buildroot/output/images/u-boot.bin of=$diskId bs=512 seek=17849 # déplacé
 \end{lstlisting}
 
-U-boot ne démmare pas (on peut en déduire que c'est logique...)! Par contre le ventilateur c'est mis à tourner, ce qui porte à penser que "bl2.bin" à bien démarré, mais n'as pas trouvé "u-boot".
+U-boot ne démarre pas (on peut en déduire que c'est logique...)! Par contre le ventilateur s'est mis à tourner, ce qui porte à penser que "bl2.bin" à bien démarré, mais n'as pas trouvé "u-boot".
 
-%TODO Cyrille : à ajouter tes parties
+%TODO Cyrille : à ajouter tes parties -> fait
+\begin{lstlisting}[frame=single,style=Console]  % Start your code-block
+
+#Kernel
+dd if=/dev/zero of=$diskId bs=512 seek=1263 count=6412
+dd if=~/workspace/xu3/buildroot/output/images/uImage of=$diskId bs=512 seek=17849 # déplacé
+\end{lstlisting}
+
+\begin{center} 
+\hspace{15cm}
+\includegraphics[width=14cm]{deplacer_kernel.png}
+\end{center}
+\vspace{0.5cm}
+
+Cette fois-ci, logiquement, U-Boot démarre normalement. Mais au moment de charger le noyau linux, il nous dit qu'il n'arrive pas à le trouver (et oui, il n'est plus à l'adresse configurée dans les commandes de boot). Ce qui est rassurant, c'est que U-Boot n'essaie pas de lancer un code sans en vérifier la validité.
+
+\begin{lstlisting}[frame=single,style=Console]  % Start your code-block
+
+#DTB
+dd if=/dev/zero of=$diskId bs=512 seek=17647 count=102 # dtb
+dd if=~/workspace/xu3/buildroot/output/images/exynos5422-odroidxu3.dtb of=$diskId bs=512 seek=17849 #déplacé 
+\end{lstlisting}
+
+\begin{center} 
+\hspace{15cm}
+\includegraphics[width=14cm]{deplacer_DTB.png}
+\end{center}
+\vspace{0.5cm}
+
+Cette fois-ci, U-Boot démarre et arrive à charger charger le noyau linux, trouve que la checksum du noyau est correcte, mais il ne lance pas le noyau car il ne trouve pas un Flattened Device Tree correct.
+
 \pagebreak
 \subsection{U-Boot "bootcmds"}
 Cette petite section nous a permis de tester différentes commandes possible pour démarrer le noyau Linux.
