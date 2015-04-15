@@ -37,12 +37,35 @@ Le point suivant est de rendre la section de code du noyau "Read-Only". Pourquoi
 \section{TCP SYN cookies attack}
 \subsection{Scapy script}
 
-%TODO Cyrille : Ton script + explications
+%TODO Cyrille : Ton script + explications -> fait
+Pour tenter de faire une attaque "SYN flood" contre la carte embarquée, on avait à faire un programme en Python avec le module Scapy. On a donc fait un script qui fabrique un paquet TCP de connexion (SYN) et l'envoie à l'adresse IP de la carte Odroid (carte connectée par Ethernet au PC) mais sans jamais renvoyer de ACK une fois que la réponse de la carte, SYN+ACK, est reçue, ce qui laisse des connexions semi-ouvertes.\\
 
+\begin{lstlisting}[frame=single,language=Python]  % Start your code-block
+
+#!/usr/bin/python2.7
+
+from scapy.all import *
+
+ip=IP(dst="192.168.0.4", id=1111, ttl=99)/TCP(sport=RandShort(), dport=[22, 80], seq=12345, ack=1000, window=1000, flags="S")/""
+
+ls(ip)
+
+srloop(ip, inter=0.3, retry=2, timeout=4)
+\end{lstlisting}
+
+Ensuite on a testé ce script en deux temps, une première fois avec les SYN Cookies désactivés sur la carte et une seconde fois en les activant.\\
+
+Comme on pouvait s'y attendre, l'attaque n'a pas fonctionné lorsque les SYN Cookies étaient activés. Mais malheureusement, elle n'a pas fonctionné non plus lorsqu'ils étaient désactivés. Nous avons obtenu le résultat suivant dans les deux cas :
+
+\begin{center} 
+\hspace{15cm}
+\includegraphics[width=14cm]{netstat_scapy.png}
+\end{center}
+\vspace{0.5cm}
 
 
 \subsection{Command "hping3"}
-Comme le script Scapy ne fonctionnait pas très bien, nous avons décidé de tester un autre outil : "hping3". Les résultats sont très concluant. Voici la commande utilisée pour générer l'attaque :
+Comme le script Scapy ne fonctionnait pas très bien, nous avons décidé de tester un autre outil : "hping3". Les résultats sont très concluants. Voici la commande utilisée pour générer l'attaque :
 \begin{lstlisting}[frame=single,style=Console]  % Start your code-block
 
 hping3 --flood -I eth0 -V --rand-source -S -p 22 192.168.0.11
