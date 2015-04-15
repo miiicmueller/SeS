@@ -238,10 +238,10 @@ Par cette simple manière, nous avons déjà protégé considérablement notre b
 \pagebreak
 
 \subsubsection{Using canaries}
-Comme vu juste précédement, nous avons ajouté une option de compilation qui permet de protéger la pile : "-­fstack-­protector-­all". \\
-Cette option permet de protéger de manière efficace contre les vulnérabilité de type "bufferoverflow" (généralement suite à une vulnérabilité de type "integeroverflow"). \\
+Comme vu juste précédemment, nous avons ajouté une option de compilation qui permet de protéger la pile : "-fstack--protector-all". \\
+Cette option permet de protéger de manière efficace contre les vulnérabilités de type "bufferoverflow" (généralement suite à une vulnérabilité de type "integeroverflow"). \\
 
-Cette vulnérabilité est simple : si la taille d'une écriture dans un tableau  sur la pile n'est pas contrôlée, il y a un risque que l'on réécrive l'adresse de retour de la fonction. C'est pas cette méthode que l'on peut injecter un code malin et prendre le contrôle d'un ordinateur. \\
+Cette vulnérabilité est simple : si la taille d'une écriture dans un tableau  sur la pile n'est pas contrôlée, il y a un risque que l'on réécrive l'adresse de retour de la fonction. C'est par cette méthode que l'on peut injecter un code malin et prendre le contrôle d'un ordinateur. \\
 Pour parer à ce problème, on a rajouté entre l'adresse de retour et les variables locale (qui sont sur la pile), une valeur aléatoire qui est contrôlée à la fin de la fonction. On les appelle des "canaris", nom historique reçu des mineurs de charbon qui utilisaient des canaris pour détecter le "grisou" (gaz très explosif...) présent dans les mines. 
 
 Voici un exemple de programme compilé sans et avec cette option. C'est le code "C" identique pour les deux programmes :
