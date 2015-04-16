@@ -16,7 +16,7 @@ Les deux codes fournis comportent des erreurs de fonctionnement qu'il va falloir
 Pour les découvrir, on utilise les outils Valgrind vu au cours : "memcheck", "sgcheck" et "massif".
 
 \subsection{Code 1 : bitmap.c}
-Ce premier code encrypte une image dans une autre par stéganographie. Pour ce faire il copie les images dans une zone mémoire allouée dynamiquement, et quand il a terminé il libère cette zone mémoire.\\
+Ce premier code encode une image dans une autre par stéganographie. Pour ce faire il copie les images dans une zone mémoire allouée dynamiquement, et quand il a terminé il libère cette zone mémoire.\\
 
 On va d'abord voir si sa mémoire est bien gérée ou non avec l'outil massif :
 \begin{lstlisting}[frame=single,style=Console]  % Start your code-block
@@ -68,5 +68,81 @@ Et maintenant si on relance la commande memcheck sur le code corrigé, elle ne t
 
 L'outil sgcheck quant à lui n'a rien donné sur ce programme. Il n'a pas trouvé de problème car il est fait pour détecter des dépassement de pile ou de tableaux (mais pas sur l'allocation dynamique apparemment), et il n'y avait donc pas de problème détectable pour lui.\\
 
+\pagebreak
 \subsection{Code 2 : exe2.c}
+Le second code est extrêmement mal écrit! Après une longue étude (:-P) du programme, il s'avère que c'est une implémentation de vecteurs en C. Si on compile le code et qu'on l'exécute avec les outils "Valgrind" pour tester les fuites mémoire, on obtient le résultat suivant :
+\begin{center} 
+\hspace{15cm}
+\includegraphics[width=14cm]{memcheck_avant_exe2.png}
+\end{center}
+\vspace{0.5cm}
+
+On remarque que 392 bytes ont étés perdus après allocations. Si on utilise l'outil massif on voit clairement que rien n'est libéré :
+\begin{lstlisting}[frame=single,style=Console]  % Start your code-block
+
+valgrind --tool=massif --time-unit=B ./exe2_orig
+\end{lstlisting}
+\begin{center} 
+\hspace{15cm}
+\includegraphics[width=14cm]{massif_exe2_avant.png}
+\end{center}
+\vspace{0.5cm}
+\pagebreak
+
+
+
+
+
+Commençons par la modification de la fonction "main" :
+\begin{center} 
+\hspace{15cm}
+\includegraphics[width=14cm]{modif_exe2_main.png}
+\end{center}
+\vspace{0.5cm}
+
+Il manquait une initialisation des éléments du vecteur. Les valeurs des vecteurs étaient aléatoires (on lit les dernières valeur dans la RAM). De plus, la fonction de libération du vecteur n'était même pas appelée!\\
+
+La prochaine fonction à améliorer est "VectorCreate" :
+\begin{center} 
+\hspace{15cm}
+\includegraphics[width=14cm]{modif_exe2_vectorCreate.png}
+\end{center}
+\vspace{0.5cm}
+La mémoire n'était pas libérée en cas de d'erreur d'allocation ultérieure (si l'allocation des éléments échoue, le vecteur alloué juste avant n'était pas libéré) et les éléments n'étaient pas initialisés.
+\pagebreak
+
+La modification suivante est l'implémentation de la fonction "VectorFree" qui ne libérait pas une grande partie de la mémoire :
+\begin{center} 
+\hspace{15cm}
+\includegraphics[width=14cm]{modif_exe2_vectorFree.png}
+\end{center}
+\vspace{0.5cm}
+Le programme libérait bien le vecteur, mais pas ses éléments! Donc presque rien n'était libéré.\\
+
+Le dernier gros bug joufflu se trouvait dans la fonction "ResizeArray"  :
+\begin{center} 
+\hspace{15cm}
+\includegraphics[width=14cm]{modif_exe2_resize.png}
+\end{center}
+\vspace{0.5cm}
+La fonction alloue un nouveau tableau d'une taille "X" et l'initialise avec les valeur du tableau précédent. Par contre, l'ancien tableau n'était pas libéré!
+
+Il restait encore quelques modifications pour initialiser comme il faut les valeurs. 
+
+\pagebreak 
+Si on lance cette fois notre outil massif, on voit que la mémoire est libérée correctement : 
+\begin{center} 
+\hspace{15cm}
+\includegraphics[width=14cm]{massif_apres_exe2.png}
+\end{center}
+\vspace{0.5cm}
+
+Voici aussi le "memcheck" : 
+\begin{center} 
+\hspace{15cm}
+\includegraphics[width=14cm]{memcheck_apres_exe2.png}
+\end{center}
+\vspace{0.5cm}
+On voit que tout à bien été libéré. Il n'existe plus de fuites mémoire. Remarques :  l'outil "Sgcheck" ne donnait pas d'erreur pour ce programme.
+
 
